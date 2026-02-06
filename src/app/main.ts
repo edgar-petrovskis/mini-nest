@@ -1,23 +1,14 @@
 import 'reflect-metadata';
-import { Container, Injectable, Inject } from '../framework';
 
-@Injectable()
-class ConfigService {
-  value = 'from ConfigService';
-}
+import { NestFactory } from '../framework/factory';
+import { createExpressApp } from '../framework/http/express';
+import { AppModule } from './app.module';
 
-@Injectable()
-class AppService {
-  constructor(@Inject(ConfigService) public config: ConfigService) {}
-}
+const port = 8081;
 
-const container = new Container();
+const ctx = NestFactory.create(AppModule);
+const app = createExpressApp(ctx.router, ctx.container);
 
-const app = container.resolve(AppService);
-
-console.log('app is AppService:', app instanceof AppService);
-console.log('config is ConfigService:', app.config instanceof ConfigService);
-console.log('config.value:', app.config.value);
-
-const newConfig = container.resolve(ConfigService);
-console.log('singleton config:', app.config === newConfig);
+app.listen(port, () => {
+  console.log(`Mini-Nest listening on http://localhost:${port}`);
+});
