@@ -16,10 +16,10 @@ function uniq<T>(items: T[]): T[] {
   return Array.from(new Set(items));
 }
 
-function collectFromModule(
+function collectControllersFromModule(
   moduleClass: Token<any>,
   visited: Set<Token<any>>,
-  out: { controllers: Token<any>[]; providers: Token<any>[] },
+  out: Token<any>[],
 ) {
   if (visited.has(moduleClass)) return;
   visited.add(moduleClass);
@@ -33,11 +33,62 @@ function collectFromModule(
 
   const imports = meta.imports ?? [];
   for (const importedModule of imports) {
-    collectFromModule(importedModule, visited, out);
+    collectControllersFromModule(importedModule, visited, out);
   }
 
-  out.controllers.push(...(meta.controllers ?? []));
-  out.providers.push(...(meta.providers ?? []));
+  out.push(...(meta.controllers ?? []));
+}
+
+function collectVisibleProviders(
+  moduleClass: Token<any>,
+  cache: Map<Token<any>, Token<any>[]>,
+): Token<any>[] {
+  const cached = cache.get(moduleClass);
+  if (cached) return cached;
+
+  const meta: ModuleMetadata | undefined = getModuleMetadata(moduleClass);
+  if (!meta) {
+    throw new Error(
+      `Cannot bootstrap: ${moduleClass.name} is not marked with @Module()`,
+    );
+  }
+
+  const localProviders = meta.providers ?? [];
+  const importedModules = meta.imports ?? [];
+
+  const importedExports = importedModules.flatMap((importedModule) =>
+    collectExportedProviders(importedModule, cache),
+  );
+
+  const visibleProviders = uniq([...localProviders, ...importedExports]);
+  cache.set(moduleClass, visibleProviders);
+
+  return visibleProviders;
+}
+
+function collectExportedProviders(
+  moduleClass: Token<any>,
+  cache: Map<Token<any>, Token<any>[]>,
+): Token<any>[] {
+  const meta: ModuleMetadata | undefined = getModuleMetadata(moduleClass);
+  if (!meta) {
+    throw new Error(
+      `Cannot bootstrap: ${moduleClass.name} is not marked with @Module()`,
+    );
+  }
+
+  const visibleProviders = collectVisibleProviders(moduleClass, cache);
+  const requestedExports = meta.exports ?? [];
+
+  for (const exportedToken of requestedExports) {
+    if (!visibleProviders.includes(exportedToken)) {
+      throw new Error(
+        `Invalid export ${exportedToken.name} in ${moduleClass.name}: token is not available in this module scope`,
+      );
+    }
+  }
+
+  return uniq(requestedExports);
 }
 
 function ensureInjectableForControllers(controllers: Token<any>[]) {
@@ -55,14 +106,10 @@ export class NestFactory {
   static create(AppModule: Token<any>): CreateResult {
     const container = new Container();
 
-    const bucket = {
-      controllers: [] as Token<any>[],
-      providers: [] as Token<any>[],
-    };
-    collectFromModule(AppModule, new Set(), bucket);
-
-    const controllers = uniq(bucket.controllers);
-    const providers = uniq(bucket.providers);
+    const rawControllers: Token<any>[] = [];
+    collectControllersFromModule(AppModule, new Set(), rawControllers);
+    const controllers = uniq(rawControllers);
+    const providers = collectVisibleProviders(AppModule, new Map());
 
     ensureInjectableForControllers(controllers);
 

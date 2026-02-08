@@ -6,7 +6,8 @@ export const MODULE_METADATA_KEY = 'mini-nest:module';
 export type ModuleMetadata = {
   providers?: Token<any>[];
   controllers?: Token<any>[];
-  imports?: Token<any>[]; // модулі теж класи
+  imports?: Token<any>[];
+  exports?: Token<any>[];
 };
 
 export function Module(metadata: ModuleMetadata): ClassDecorator {

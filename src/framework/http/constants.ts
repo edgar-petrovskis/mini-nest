@@ -1,7 +1,7 @@
 export const METADATA_KEYS = {
   controllerPrefix: 'mini_nest:http:controller_prefix',
   routes: 'mini_nest:http:routes',
-} as const;
+};
 
 export type HttpMethod = 'GET';
 
