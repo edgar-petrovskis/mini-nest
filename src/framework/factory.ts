@@ -4,12 +4,16 @@ import { Container } from './di/container';
 import { getModuleMetadata, type ModuleMetadata } from './module';
 import { buildRouter } from './http/router';
 import type { RouteRecord } from './http/router';
+import type { PipeToken } from './http/constants';
+import { createExpressApp } from './http/express';
 
-type CreateResult = {
+export type MiniNestApp = {
   container: Container;
   controllers: Token<any>[];
   providers: Token<any>[];
   router: RouteRecord[];
+  useGlobalPipes: (...pipes: PipeToken[]) => void;
+  listen: (port: number, callback?: () => void) => void;
 };
 
 function uniq<T>(items: T[]): T[] {
@@ -103,7 +107,7 @@ function ensureInjectableForControllers(controllers: Token<any>[]) {
 }
 
 export class NestFactory {
-  static create(AppModule: Token<any>): CreateResult {
+  static create(AppModule: Token<any>): MiniNestApp {
     const container = new Container();
 
     const rawControllers: Token<any>[] = [];
@@ -114,12 +118,20 @@ export class NestFactory {
     ensureInjectableForControllers(controllers);
 
     const router = buildRouter(controllers);
+    const globalPipes: PipeToken[] = [];
+    const httpApp = createExpressApp(router, container, globalPipes);
 
     return {
       container,
       controllers,
       providers,
       router,
+      useGlobalPipes: (...pipes: PipeToken[]) => {
+        globalPipes.push(...pipes);
+      },
+      listen: (port: number, callback?: () => void) => {
+        httpApp.listen(port, callback);
+      },
     };
   }
 }

@@ -1,7 +1,14 @@
 import express from 'express';
 import type { RouteRecord } from './router';
 import type { Container } from '../di/container';
-import { METADATA_KEYS, type RouteParamDefinition } from './constants';
+import {
+  METADATA_KEYS,
+  type ParamPipeDefinition,
+  type PipeMetadata,
+  type PipeToken,
+  type RouteParamDefinition,
+} from './constants';
+import { HttpException } from './exceptions';
 
 type MatchedRoute = {
   route: RouteRecord;
@@ -68,10 +75,31 @@ function matchRoute(
   return best;
 }
 
+function instantiatePipe(pipe: PipeToken) {
+  if (typeof pipe === 'function') {
+    return new pipe();
+  }
+  return pipe;
+}
+
+async function runPipeChain(
+  value: unknown,
+  pipes: PipeToken[],
+  metadata: PipeMetadata,
+): Promise<unknown> {
+  let current = value;
+  for (const pipeToken of pipes) {
+    const pipe = instantiatePipe(pipeToken);
+    current = await pipe.transform(current, metadata);
+  }
+  return current;
+}
+
 async function invokeRoute(
   matched: MatchedRoute,
   container: Container,
   req: express.Request,
+  globalPipes: PipeToken[],
 ): Promise<any> {
   const { route, params } = matched;
   const controller = container.resolve(route.controllerToken);
@@ -88,6 +116,21 @@ async function invokeRoute(
       route.controllerToken.prototype,
       route.handlerName,
     ) ?? [];
+  const controllerPipes: PipeToken[] =
+    Reflect.getMetadata(METADATA_KEYS.controllerPipes, route.controllerToken) ??
+    [];
+  const methodPipes: PipeToken[] =
+    Reflect.getMetadata(
+      METADATA_KEYS.methodPipes,
+      route.controllerToken.prototype,
+      route.handlerName,
+    ) ?? [];
+  const paramPipes: ParamPipeDefinition[] =
+    Reflect.getMetadata(
+      METADATA_KEYS.paramPipes,
+      route.controllerToken.prototype,
+      route.handlerName,
+    ) ?? [];
 
   const args: any[] = [];
   for (const param of paramMeta) {
@@ -101,6 +144,26 @@ async function invokeRoute(
       value = req.body;
     }
 
+    const scopedParamPipes =
+      paramPipes.find((entry) => entry.index === param.index)?.pipes ?? [];
+
+    value = await runPipeChain(value, globalPipes, {
+      type: param.source,
+      data: param.name,
+    });
+    value = await runPipeChain(value, controllerPipes, {
+      type: param.source,
+      data: param.name,
+    });
+    value = await runPipeChain(value, methodPipes, {
+      type: param.source,
+      data: param.name,
+    });
+    value = await runPipeChain(value, scopedParamPipes, {
+      type: param.source,
+      data: param.name,
+    });
+
     args[param.index] = value;
   }
 
@@ -110,6 +173,7 @@ async function invokeRoute(
 async function dispatch(
   routes: RouteRecord[],
   container: Container,
+  globalPipes: PipeToken[],
   req: express.Request,
   res: express.Response,
 ) {
@@ -121,7 +185,7 @@ async function dispatch(
   }
 
   try {
-    const result = await invokeRoute(matched, container, req);
+    const result = await invokeRoute(matched, container, req, globalPipes);
 
     if (typeof result === 'string') {
       res.type('text/plain').send(result);
@@ -129,19 +193,28 @@ async function dispatch(
     }
 
     res.json(result ?? null);
-  } catch {
+  } catch (error) {
+    if (error instanceof HttpException) {
+      res.status(error.status).json({ message: error.message });
+      return;
+    }
+
     res.status(500).type('text/plain').send('Internal Server Error');
   }
 }
 
-export function createExpressApp(routes: RouteRecord[], container: Container) {
+export function createExpressApp(
+  routes: RouteRecord[],
+  container: Container,
+  globalPipes: PipeToken[] = [],
+) {
   const app = express();
 
   app.use(express.json());
 
   app.use((req, res) => {
     if (req.method === 'GET') {
-      void dispatch(routes, container, req as any, res as any);
+      dispatch(routes, container, globalPipes, req as any, res as any);
       return;
     }
     res.status(405).type('text/plain').send('Method Not Allowed');
