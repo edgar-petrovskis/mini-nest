@@ -5,6 +5,8 @@ export const METADATA_KEYS = {
   controllerPipes: 'mini_nest:http:controller_pipes',
   methodPipes: 'mini_nest:http:method_pipes',
   paramPipes: 'mini_nest:http:param_pipes',
+  controllerGuards: 'mini_nest:http:controller_guards',
+  methodGuards: 'mini_nest:http:method_guards',
 };
 
 export type HttpMethod = 'GET';
@@ -38,3 +40,18 @@ export type ParamPipeDefinition = {
   index: number;
   pipes: PipeToken[];
 };
+
+export type GuardContext = {
+  request: unknown;
+  controller: unknown;
+  handlerName: string | symbol;
+  args: unknown[];
+};
+
+export type GuardCanActivate = {
+  canActivate(context: GuardContext): boolean | Promise<boolean>;
+};
+
+export type GuardToken =
+  | GuardCanActivate
+  | (new (...args: any[]) => GuardCanActivate);

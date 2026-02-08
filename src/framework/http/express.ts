@@ -2,6 +2,8 @@ import express from 'express';
 import type { RouteRecord } from './router';
 import type { Container } from '../di/container';
 import {
+  type GuardContext,
+  type GuardToken,
   METADATA_KEYS,
   type ParamPipeDefinition,
   type PipeMetadata,
@@ -95,11 +97,32 @@ async function runPipeChain(
   return current;
 }
 
+function instantiateGuard(guard: GuardToken) {
+  if (typeof guard === 'function') {
+    return new guard();
+  }
+  return guard;
+}
+
+async function runGuardChain(
+  guards: GuardToken[],
+  context: GuardContext,
+): Promise<void> {
+  for (const guardToken of guards) {
+    const guard = instantiateGuard(guardToken);
+    const allowed = await guard.canActivate(context);
+    if (!allowed) {
+      throw new HttpException(403, 'Forbidden');
+    }
+  }
+}
+
 async function invokeRoute(
   matched: MatchedRoute,
   container: Container,
   req: express.Request,
   globalPipes: PipeToken[],
+  globalGuards: GuardToken[],
 ): Promise<any> {
   const { route, params } = matched;
   const controller = container.resolve(route.controllerToken);
@@ -128,6 +151,17 @@ async function invokeRoute(
   const paramPipes: ParamPipeDefinition[] =
     Reflect.getMetadata(
       METADATA_KEYS.paramPipes,
+      route.controllerToken.prototype,
+      route.handlerName,
+    ) ?? [];
+  const controllerGuards: GuardToken[] =
+    Reflect.getMetadata(
+      METADATA_KEYS.controllerGuards,
+      route.controllerToken,
+    ) ?? [];
+  const methodGuards: GuardToken[] =
+    Reflect.getMetadata(
+      METADATA_KEYS.methodGuards,
       route.controllerToken.prototype,
       route.handlerName,
     ) ?? [];
@@ -167,6 +201,25 @@ async function invokeRoute(
     args[param.index] = value;
   }
 
+  await runGuardChain(globalGuards, {
+    request: req,
+    controller,
+    handlerName: route.handlerName,
+    args,
+  });
+  await runGuardChain(controllerGuards, {
+    request: req,
+    controller,
+    handlerName: route.handlerName,
+    args,
+  });
+  await runGuardChain(methodGuards, {
+    request: req,
+    controller,
+    handlerName: route.handlerName,
+    args,
+  });
+
   return await handler.call(controller, ...args);
 }
 
@@ -174,6 +227,7 @@ async function dispatch(
   routes: RouteRecord[],
   container: Container,
   globalPipes: PipeToken[],
+  globalGuards: GuardToken[],
   req: express.Request,
   res: express.Response,
 ) {
@@ -185,7 +239,13 @@ async function dispatch(
   }
 
   try {
-    const result = await invokeRoute(matched, container, req, globalPipes);
+    const result = await invokeRoute(
+      matched,
+      container,
+      req,
+      globalPipes,
+      globalGuards,
+    );
 
     if (typeof result === 'string') {
       res.type('text/plain').send(result);
@@ -207,6 +267,7 @@ export function createExpressApp(
   routes: RouteRecord[],
   container: Container,
   globalPipes: PipeToken[] = [],
+  globalGuards: GuardToken[] = [],
 ) {
   const app = express();
 
@@ -214,7 +275,14 @@ export function createExpressApp(
 
   app.use((req, res) => {
     if (req.method === 'GET') {
-      dispatch(routes, container, globalPipes, req as any, res as any);
+      dispatch(
+        routes,
+        container,
+        globalPipes,
+        globalGuards,
+        req as any,
+        res as any,
+      );
       return;
     }
     res.status(405).type('text/plain').send('Method Not Allowed');
