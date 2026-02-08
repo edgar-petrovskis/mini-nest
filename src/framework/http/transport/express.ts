@@ -1,16 +1,16 @@
 import express from 'express';
-import type { RouteRecord } from './router';
-import type { Container } from '../di/container';
+import type { RouteRecord } from '../routing/router';
+import type { Container } from '../../di/container';
 import {
   type FilterToken,
   type GuardToken,
   type InterceptorToken,
   METADATA_KEYS,
   type PipeToken,
-} from './constants';
-import { invokeRoute } from './pipeline/invoke-route';
-import { runFilterChain } from './pipeline/filters';
-import { matchRoute } from './pipeline/route-matcher';
+} from '../constants';
+import { invokeRoute } from '../pipeline/invoke-route';
+import { runFilterChain } from '../pipeline/filters';
+import { matchRoute } from '../routing/route-matcher';
 
 async function dispatch(
   routes: RouteRecord[],
@@ -91,20 +91,16 @@ export function createExpressApp(
   app.use(express.json());
 
   app.use((req, res) => {
-    if (req.method === 'GET') {
-      dispatch(
-        routes,
-        container,
-        globalPipes,
-        globalGuards,
-        globalInterceptors,
-        globalFilters,
-        req as any,
-        res as any,
-      );
-      return;
-    }
-    res.status(405).type('text/plain').send('Method Not Allowed');
+    dispatch(
+      routes,
+      container,
+      globalPipes,
+      globalGuards,
+      globalInterceptors,
+      globalFilters,
+      req as any,
+      res as any,
+    );
   });
 
   return app;

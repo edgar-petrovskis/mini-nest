@@ -2,7 +2,7 @@ import 'reflect-metadata';
 
 import { NestFactory } from '../framework/factory';
 import { AppModule } from './app.module';
-import { HttpException } from '../framework/http/exceptions';
+import { HttpException } from '../framework/http/errors/exceptions';
 
 const port = 8081;
 

@@ -2,8 +2,8 @@ import {
   METADATA_KEYS,
   type RouteDefinition,
   type HttpMethod,
-} from './constants';
-import type { Token } from '../di/types';
+} from '../constants';
+import type { Token } from '../../di/types';
 
 export type RouteRecord = {
   method: HttpMethod;

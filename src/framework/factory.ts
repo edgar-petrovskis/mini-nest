@@ -2,15 +2,15 @@ import 'reflect-metadata';
 import type { Token } from './di/types';
 import { Container } from './di/container';
 import { getModuleMetadata, type ModuleMetadata } from './module';
-import { buildRouter } from './http/router';
-import type { RouteRecord } from './http/router';
+import { buildRouter } from './http/routing/router';
+import type { RouteRecord } from './http/routing/router';
 import type {
   FilterToken,
   GuardToken,
   InterceptorToken,
   PipeToken,
 } from './http/constants';
-import { createExpressApp } from './http/express';
+import { createExpressApp } from './http/transport/express';
 
 export type MiniNestApp = {
   container: Container;

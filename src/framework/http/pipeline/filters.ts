@@ -1,5 +1,5 @@
 import { type FilterContext, type FilterResult, type FilterToken } from '../constants';
-import { HttpException } from '../exceptions';
+import { HttpException } from '../errors/exceptions';
 
 function instantiateFilter(filter: FilterToken) {
   if (typeof filter === 'function') {
@@ -33,4 +33,3 @@ export async function runFilterChain(
     contentType: 'text',
   };
 }
-

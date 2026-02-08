@@ -1,5 +1,5 @@
 import type express from 'express';
-import type { RouteRecord } from '../router';
+import type { RouteRecord } from './router';
 
 export type MatchedRoute = {
   route: RouteRecord;
@@ -65,4 +65,3 @@ export function matchRoute(
 
   return best;
 }
-

@@ -13,7 +13,7 @@ export const METADATA_KEYS = {
   methodFilters: 'mini_nest:http:method_filters',
 };
 
-export type HttpMethod = 'GET';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export type RouteDefinition = {
   method: HttpMethod;

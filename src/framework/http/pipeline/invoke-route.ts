@@ -9,7 +9,7 @@ import {
   type PipeToken,
   type RouteParamDefinition,
 } from '../constants';
-import type { MatchedRoute } from './route-matcher';
+import type { MatchedRoute } from '../routing/route-matcher';
 import { runGuardChain } from './guards';
 import { runInterceptorChain } from './interceptors';
 import { runPipeChain } from './pipes';
@@ -145,4 +145,3 @@ export async function invokeRoute(
     return handler.call(controller, ...args);
   });
 }
-

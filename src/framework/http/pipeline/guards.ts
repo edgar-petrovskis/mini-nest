@@ -1,5 +1,5 @@
 import type { GuardContext, GuardToken } from '../constants';
-import { HttpException } from '../exceptions';
+import { HttpException } from '../errors/exceptions';
 
 function instantiateGuard(guard: GuardToken) {
   if (typeof guard === 'function') {
@@ -20,4 +20,3 @@ export async function runGuardChain(
     }
   }
 }
-

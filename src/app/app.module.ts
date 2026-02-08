@@ -8,7 +8,7 @@ import {
   UseGuard,
 } from '../framework/http/decorators';
 
-import { HttpException } from '../framework/http/exceptions';
+import { HttpException } from '../framework/http/errors/exceptions';
 
 class AuthGuard {
   canActivate(ctx: any) {
