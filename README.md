@@ -1,16 +1,16 @@
 # mini-nest
 
-A minimal Nest-like framework focused on runtime mechanics:
+A minimal Nest-like framework focused on runtime execution mechanics:
 
-- IoC/DI container
-- Module graph bootstrap
-- HTTP decorators and route dispatch
+- IoC / DI container
+- module graph bootstrap
+- HTTP decorators + route dispatch
 - Parameters, Pipes, Guards, Interceptors, Filters
 
-This repository includes both:
+This repo contains:
 
-1. Framework implementation in `src/framework`
-2. Demo application built on top of the framework in `src/app`
+1. Framework code in `src/framework`
+2. Demo app in `src/app`
 
 ## Quick Start
 
@@ -20,36 +20,33 @@ npm run build
 npm run start:dev
 ```
 
-Server starts on `http://localhost:8081`.
+Server: `http://localhost:8081`
 
-## Demo App Overview
+## Demo App
 
-The demo app is a `Cats` API that uses the full framework feature set:
+The `Cats` app uses all core framework parts:
 
-- `@Injectable`, `@Inject`, DI resolution
-- `@Module` imports/providers/controllers/exports
-- `@Controller` + `@Get/@Post/@Put/@Patch/@Delete`
-- `@Param/@Query/@Body`
-- `@UsePipe` + `ZodValidationPipe`
-- `@UseGuard`
-- `@UseInterceptor`
-- `@UseFilter` + global filter
+- DI: `@Injectable`, `@Inject`, transitive `resolve`
+- Modules: `imports/providers/controllers/exports`
+- HTTP: `@Controller`, `@Get/@Post/@Put/@Patch/@Delete`
+- Params: `@Param/@Query/@Body`
+- Pipes: global + route-level + `ZodValidationPipe`
+- Guards: API key protection
+- Interceptors: before/after response wrapping (`trace`)
+- Filters: global and controller-level error mapping
 
-Guard requirement for cats endpoints:
+For cats endpoints use:
 
-- add `?apiKey=secret` to requests
+- `?apiKey=secret`
 
-## Homework Verification Matrix
+## Feature Verification Matrix
 
-| Feature                                                               | How to Verify                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Expected Result                                                                                    |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| IoC / DI: `@Injectable`, `@Inject`, `resolve` with transitive deps    | `curl "http://localhost:8081/cats?apiKey=secret"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Request succeeds and returns JSON from the controller-service-repository chain created via DI.     |
-| Modules: root graph bootstrap and module composition                  | `curl "http://localhost:8081/cats?apiKey=secret"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Routes from imported modules are available after `NestFactory.create(AppModule)`.                  |
-| HTTP decorators register handlers (`@Controller`, methods)            | Check method mapping:<br><br>1. `curl "http://localhost:8081/cats?apiKey=secret"`<br>2. `curl -X POST "http://localhost:8081/cats?apiKey=secret" -H "content-type: application/json" -d '{"name":"Tom","age":3}'`<br>3. `curl -X PUT "http://localhost:8081/cats/1?apiKey=secret" -H "content-type: application/json" -d '{"name":"Tommy","age":4}'`<br>4. `curl -X PATCH "http://localhost:8081/cats/1?apiKey=secret" -H "content-type: application/json" -d '{"age":5}'`<br>5. `curl -X DELETE "http://localhost:8081/cats/1?apiKey=secret"` | Each HTTP method is routed to its matching handler and returns the expected response shape/status. |
-| Parameters: `@Param`, `@Query`, `@Body`                               | `@Param` + pipe:<br>`curl "http://localhost:8081/cats/1?apiKey=secret"`<br><br>`@Query`:<br>`curl "http://localhost:8081/cats?apiKey=secret&limit=1"`<br><br>`@Body`:<br>`curl -X POST "http://localhost:8081/cats?apiKey=secret" -H "content-type: application/json" -d '{"name":"Tom","age":3}'`                                                                                                                                                                                                                                             | `id` is read from params, `limit` from query, and payload from body and passed into handlers.      |
-| Pipes order and execution (`Global -> Controller -> Method -> Param`) | Global trim pipe is enabled in `main.ts`.<br><br>`curl -X POST "http://localhost:8081/cats?apiKey=secret" -H "content-type: application/json" -d '{"name":"  Tom  ","age":3}'`                                                                                                                                                                                                                                                                                                                                                                 | Name is trimmed before persistence/response, showing pipe execution in the request pipeline.       |
-| Zod validation pipe returns HTTP 400                                  | Send invalid body:<br><br>`curl -i -X POST "http://localhost:8081/cats?apiKey=secret" -H "content-type: application/json" -d '{"name":"","age":-1}'`                                                                                                                                                                                                                                                                                                                                                                                           | HTTP `400` with validation error message.                                                          |
-| Guards block unauthorized access                                      | Missing or invalid key:<br><br>`curl -i "http://localhost:8081/cats"`<br>`curl -i "http://localhost:8081/cats?apiKey=wrong"`                                                                                                                                                                                                                                                                                                                                                                                                                   | HTTP `403` from guard check.                                                                       |
-| Interceptors (`before/after`) wrap handler                            | Call endpoint with valid key:<br><br>`curl "http://localhost:8081/cats?apiKey=secret"`                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Response contains `trace` values proving before/after interceptor flow around handler.             |
-| `HttpException` maps to HTTP response through Filters                 | Call missing entity:<br><br>`curl -i "http://localhost:8081/cats/999?apiKey=secret"`                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Error is transformed by filters into structured HTTP response (status + body).                     |
-| Working bootstrap (`NestFactory.create` + `app.listen`)               | Start app (`npm run start:dev`) and call any endpoint above.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Server starts and serves requests on `http://localhost:8081`.                                      |
+| Feature                           | Primary Check                                                                                                              | Expected Result                                                                                                                                     |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IoC/DI + Modules bootstrap        | `curl "http://localhost:8081/cats?apiKey=secret"`                                                                          | Route is available from imported module and response is produced through controller -> service -> repository DI chain.                              |
+| HTTP decorators and handlers      | `curl -X POST "http://localhost:8081/cats?apiKey=secret" -H "content-type: application/json" -d '{"name":"Tom","age":3}'`  | Matching handler executes for declared HTTP method and path.                                                                                        |
+| Params (`@Param/@Query/@Body`)    | `curl "http://localhost:8081/cats/1?apiKey=secret"`                                                                        | Route param is extracted and passed to the handler (with param-level pipes when configured).                                                        |
+| Pipes + Zod validation            | `curl -i -X POST "http://localhost:8081/cats?apiKey=secret" -H "content-type: application/json" -d '{"name":"","age":-1}'` | Validation fails and returns HTTP `400`.                                                                                                            |
+| Guards                            | `curl -i "http://localhost:8081/cats?apiKey=wrong"`                                                                        | Guard blocks request with HTTP `403`.                                                                                                               |
+| Interceptors                      | `curl "http://localhost:8081/cats?apiKey=secret"`                                                                          | Response `trace` shows wrapper order: `global-before:list -> controller-before:list -> handler:list -> controller-after:list -> global-after:list`. |
+| Filters + `HttpException` mapping | `curl -i "http://localhost:8081/cats/999?apiKey=secret"`                                                                   | Exception is transformed by filters into structured HTTP response.                                                                                  |

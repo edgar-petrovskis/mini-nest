@@ -59,9 +59,10 @@ export class CatsController {
 
   @Get('/')
   list(@Query('limit') limit?: string) {
+    const trace = [`handler:${this.list.name}`];
     const all = this.cats.list();
     const take = limit ? Math.max(0, Number(limit) || 0) : all.length;
-    return { items: all.slice(0, take) };
+    return { items: all.slice(0, take), trace };
   }
 
   @Get('/:id')
