@@ -4,7 +4,7 @@ import { Container } from './di/container';
 import { getModuleMetadata, type ModuleMetadata } from './module';
 import { buildRouter } from './http/router';
 import type { RouteRecord } from './http/router';
-import type { GuardToken, PipeToken } from './http/constants';
+import type { GuardToken, InterceptorToken, PipeToken } from './http/constants';
 import { createExpressApp } from './http/express';
 
 export type MiniNestApp = {
@@ -14,6 +14,7 @@ export type MiniNestApp = {
   router: RouteRecord[];
   useGlobalPipes: (...pipes: PipeToken[]) => void;
   useGlobalGuards: (...guards: GuardToken[]) => void;
+  useGlobalInterceptors: (...interceptors: InterceptorToken[]) => void;
   listen: (port: number, callback?: () => void) => void;
 };
 
@@ -121,11 +122,13 @@ export class NestFactory {
     const router = buildRouter(controllers);
     const globalPipes: PipeToken[] = [];
     const globalGuards: GuardToken[] = [];
+    const globalInterceptors: InterceptorToken[] = [];
     const httpApp = createExpressApp(
       router,
       container,
       globalPipes,
       globalGuards,
+      globalInterceptors,
     );
 
     return {
@@ -138,6 +141,9 @@ export class NestFactory {
       },
       useGlobalGuards: (...guards: GuardToken[]) => {
         globalGuards.push(...guards);
+      },
+      useGlobalInterceptors: (...interceptors: InterceptorToken[]) => {
+        globalInterceptors.push(...interceptors);
       },
       listen: (port: number, callback?: () => void) => {
         httpApp.listen(port, callback);

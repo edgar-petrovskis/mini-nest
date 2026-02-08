@@ -13,7 +13,7 @@ class AuthGuard {
 }
 
 class BlockGuard {
-  canActivate() {
+  canActivate(): never {
     throw new HttpException(403, 'BlockGuard');
   }
 }

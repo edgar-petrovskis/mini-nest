@@ -7,6 +7,8 @@ export const METADATA_KEYS = {
   paramPipes: 'mini_nest:http:param_pipes',
   controllerGuards: 'mini_nest:http:controller_guards',
   methodGuards: 'mini_nest:http:method_guards',
+  controllerInterceptors: 'mini_nest:http:controller_interceptors',
+  methodInterceptors: 'mini_nest:http:method_interceptors',
 };
 
 export type HttpMethod = 'GET';
@@ -55,3 +57,25 @@ export type GuardCanActivate = {
 export type GuardToken =
   | GuardCanActivate
   | (new (...args: any[]) => GuardCanActivate);
+
+export type InterceptorContext = {
+  request: unknown;
+  controller: unknown;
+  handlerName: string | symbol;
+  args: unknown[];
+};
+
+export type CallHandler = {
+  handle: () => Promise<unknown>;
+};
+
+export type InterceptorTransform = {
+  intercept(
+    context: InterceptorContext,
+    next: CallHandler,
+  ): unknown | Promise<unknown>;
+};
+
+export type InterceptorToken =
+  | InterceptorTransform
+  | (new (...args: any[]) => InterceptorTransform);

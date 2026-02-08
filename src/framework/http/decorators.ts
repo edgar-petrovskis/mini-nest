@@ -1,5 +1,6 @@
 import {
   type GuardToken,
+  type InterceptorToken,
   METADATA_KEYS,
   type ParamPipeDefinition,
   type PipeToken,
@@ -157,5 +158,37 @@ export function UseGuard(guard: GuardToken): ClassDecorator & MethodDecorator {
       Reflect.getMetadata(METADATA_KEYS.controllerGuards, target) ?? [];
     existing.push(guard);
     Reflect.defineMetadata(METADATA_KEYS.controllerGuards, existing, target);
+  };
+}
+
+export function UseInterceptor(
+  interceptor: InterceptorToken,
+): ClassDecorator & MethodDecorator {
+  return (target: object, propertyKey?: string | symbol) => {
+    if (propertyKey) {
+      const existing: InterceptorToken[] =
+        Reflect.getMetadata(
+          METADATA_KEYS.methodInterceptors,
+          target,
+          propertyKey,
+        ) ?? [];
+      existing.push(interceptor);
+      Reflect.defineMetadata(
+        METADATA_KEYS.methodInterceptors,
+        existing,
+        target,
+        propertyKey,
+      );
+      return;
+    }
+
+    const existing: InterceptorToken[] =
+      Reflect.getMetadata(METADATA_KEYS.controllerInterceptors, target) ?? [];
+    existing.push(interceptor);
+    Reflect.defineMetadata(
+      METADATA_KEYS.controllerInterceptors,
+      existing,
+      target,
+    );
   };
 }
