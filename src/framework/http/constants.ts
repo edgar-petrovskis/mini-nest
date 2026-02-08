@@ -9,6 +9,8 @@ export const METADATA_KEYS = {
   methodGuards: 'mini_nest:http:method_guards',
   controllerInterceptors: 'mini_nest:http:controller_interceptors',
   methodInterceptors: 'mini_nest:http:method_interceptors',
+  controllerFilters: 'mini_nest:http:controller_filters',
+  methodFilters: 'mini_nest:http:method_filters',
 };
 
 export type HttpMethod = 'GET';
@@ -79,3 +81,27 @@ export type InterceptorTransform = {
 export type InterceptorToken =
   | InterceptorTransform
   | (new (...args: any[]) => InterceptorTransform);
+
+export type FilterContext = {
+  request: unknown;
+  response: unknown;
+  controller?: unknown;
+  handlerName?: string | symbol;
+};
+
+export type FilterResult = {
+  status: number;
+  body: unknown;
+  contentType?: 'json' | 'text';
+};
+
+export type ExceptionFilter = {
+  catch(
+    exception: unknown,
+    context: FilterContext,
+  ): FilterResult | void | Promise<FilterResult | void>;
+};
+
+export type FilterToken =
+  | ExceptionFilter
+  | (new (...args: any[]) => ExceptionFilter);

@@ -1,9 +1,15 @@
 import express from 'express';
 import type { RouteRecord } from './router';
 import type { Container } from '../di/container';
-import { type GuardToken, type InterceptorToken, type PipeToken } from './constants';
-import { HttpException } from './exceptions';
+import {
+  type FilterToken,
+  type GuardToken,
+  type InterceptorToken,
+  METADATA_KEYS,
+  type PipeToken,
+} from './constants';
 import { invokeRoute } from './pipeline/invoke-route';
+import { runFilterChain } from './pipeline/filters';
 import { matchRoute } from './pipeline/route-matcher';
 
 async function dispatch(
@@ -12,6 +18,7 @@ async function dispatch(
   globalPipes: PipeToken[],
   globalGuards: GuardToken[],
   globalInterceptors: InterceptorToken[],
+  globalFilters: FilterToken[],
   req: express.Request,
   res: express.Response,
 ) {
@@ -39,12 +46,35 @@ async function dispatch(
 
     res.json(result ?? null);
   } catch (error) {
-    if (error instanceof HttpException) {
-      res.status(error.status).json({ message: error.message });
+    const controllerFilters: FilterToken[] =
+      Reflect.getMetadata(
+        METADATA_KEYS.controllerFilters,
+        matched.route.controllerToken,
+      ) ?? [];
+    const methodFilters: FilterToken[] =
+      Reflect.getMetadata(
+        METADATA_KEYS.methodFilters,
+        matched.route.controllerToken.prototype,
+        matched.route.handlerName,
+      ) ?? [];
+
+    const result = await runFilterChain(
+      error,
+      {
+        request: req,
+        response: res,
+        controller: matched.route.controllerToken,
+        handlerName: matched.route.handlerName,
+      },
+      [...methodFilters, ...controllerFilters, ...globalFilters],
+    );
+
+    if (result.contentType === 'text') {
+      res.status(result.status).type('text/plain').send(String(result.body));
       return;
     }
 
-    res.status(500).type('text/plain').send('Internal Server Error');
+    res.status(result.status).json(result.body);
   }
 }
 
@@ -54,6 +84,7 @@ export function createExpressApp(
   globalPipes: PipeToken[] = [],
   globalGuards: GuardToken[] = [],
   globalInterceptors: InterceptorToken[] = [],
+  globalFilters: FilterToken[] = [],
 ) {
   const app = express();
 
@@ -67,6 +98,7 @@ export function createExpressApp(
         globalPipes,
         globalGuards,
         globalInterceptors,
+        globalFilters,
         req as any,
         res as any,
       );
